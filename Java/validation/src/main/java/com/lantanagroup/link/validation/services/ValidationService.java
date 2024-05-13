@@ -14,6 +14,10 @@ import com.lantanagroup.link.validation.entities.ArtifactEntity;
 import com.lantanagroup.link.validation.entities.ResultEntity;
 import com.lantanagroup.link.validation.model.ResultModel;
 import com.lantanagroup.link.validation.repositories.ResultRepository;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
 import net.sourceforge.plantuml.StringUtils;
 import org.hl7.fhir.common.hapi.validation.support.CachingValidationSupport;
 import org.hl7.fhir.common.hapi.validation.support.InMemoryTerminologyServerValidationSupport;
@@ -37,6 +41,7 @@ import java.util.concurrent.ForkJoinPool;
 
 @Service
 public class ValidationService {
+    private final Tracer tracer;
     private static final Logger log = LoggerFactory.getLogger(ValidationService.class);
     private final IParser parser;
 
@@ -46,40 +51,50 @@ public class ValidationService {
     private FhirValidator validator;
     private PrePopulatedValidationSupport prePopulatedValidationSupport;
 
-    public ValidationService(ArtifactService artifactService, ResultRepository resultRepository) {
+    public ValidationService(ArtifactService artifactService, ResultRepository resultRepository, OpenTelemetry openTelemetry) {
         this.artifactService = artifactService;
         this.resultRepository = resultRepository;
 
         this.parser = FhirHelper.getContext().newJsonParser();
         this.parser.setParserErrorHandler(new LenientErrorHandler(false));
 
+        this.tracer = openTelemetry
+                .getTracer(ValidationService.class.getName());
+
         Executors.newSingleThreadExecutor().submit(this::initArtifacts);
     }
 
     public void initArtifacts() {
         log.info("Loading artifacts");
+        Span span = this.tracer.spanBuilder("Loading artifacts").startSpan();
 
-        FhirContext fhirContext = FhirHelper.getContext();
-        this.prePopulatedValidationSupport = new PrePopulatedValidationSupport(fhirContext);
-        ValidationSupportChain validationSupportChain = new ValidationSupportChain(
-                new DefaultProfileValidationSupport(fhirContext),
-                new InMemoryTerminologyServerValidationSupport(fhirContext),
-                this.prePopulatedValidationSupport
-        );
-        this.validator = fhirContext.newValidator();
-        this.validator.setExecutorService(ForkJoinPool.commonPool());
-        IValidatorModule module = new FhirInstanceValidator(new CachingValidationSupport(validationSupportChain));
-        this.validator.registerValidatorModule(module);
-        this.validator.setConcurrentBundleValidation(true);
+        try (Scope scope = span.makeCurrent()) {
+            FhirContext fhirContext = FhirHelper.getContext();
+            this.prePopulatedValidationSupport = new PrePopulatedValidationSupport(fhirContext);
+            ValidationSupportChain validationSupportChain = new ValidationSupportChain(
+                    new DefaultProfileValidationSupport(fhirContext),
+                    new InMemoryTerminologyServerValidationSupport(fhirContext),
+                    this.prePopulatedValidationSupport
+            );
+            this.validator = fhirContext.newValidator();
+            this.validator.setExecutorService(ForkJoinPool.commonPool());
+            IValidatorModule module = new FhirInstanceValidator(new CachingValidationSupport(validationSupportChain));
+            this.validator.registerValidatorModule(module);
+            this.validator.setConcurrentBundleValidation(true);
 
-        this.artifactService.getArtifacts().forEach(a -> {
-            switch (a.getType()) {
-                case PACKAGE -> this.loadPackage(a);
-                case RESOURCE -> this.loadResource(a);
-            }
-        });
-
-        log.info("Done loading artifacts into validator");
+            this.artifactService.getArtifacts().forEach(a -> {
+                switch (a.getType()) {
+                    case PACKAGE -> this.loadPackage(a);
+                    case RESOURCE -> this.loadResource(a);
+                }
+            });
+        } catch (Exception e) {
+            log.error("Error loading artifacts", e);
+            span.recordException(e);
+        } finally {
+            log.info("Done loading artifacts into validator");
+            span.end();
+        }
     }
 
     public List<ResultModel> validate(Resource resource) {

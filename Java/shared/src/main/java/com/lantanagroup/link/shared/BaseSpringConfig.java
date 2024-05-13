@@ -5,6 +5,8 @@ import com.lantanagroup.link.shared.fhir.FhirObjectMapper;
 import com.lantanagroup.link.shared.kafka.KafkaErrorHandler;
 import com.lantanagroup.link.shared.mongo.FhirConversions;
 import com.lantanagroup.link.shared.security.SecurityHelper;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.mongodb.core.convert.MongoCustomConversions;
 import org.springframework.kafka.listener.CommonErrorHandler;
@@ -32,4 +34,12 @@ public class BaseSpringConfig {
     ObjectMapper objectMapper() {
         return new FhirObjectMapper();
     }
+
+    /* TODO: This works on startup, but doesn't report a "service name" in the exported metrics
+    @Bean
+    OpenTelemetry openTelemetry() {
+        return AutoConfiguredOpenTelemetrySdk.initialize()
+                .getOpenTelemetrySdk();
+    }
+     */
 }

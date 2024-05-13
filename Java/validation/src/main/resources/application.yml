@@ -7,9 +7,19 @@ springdoc:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+otel:
+  service:
+    name: Validation
+  traces:
+    exporter: otlp
+  logs:
+    exporter: none
+  exporter:
+    otlp:
+      endpoint: ''
 spring:
   application:
-    name: ValidationService
+    name: Validation
   security:
     oauth2:
       resourceserver:
