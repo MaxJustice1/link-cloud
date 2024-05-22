@@ -14,6 +14,7 @@ version: '3.4'
 ## kafka-ui: 9095
 ## rest-proxy: 8082
 ## schema-registry: 8081
+## hapi-fhir: 8059
 ## account: 8060
 ## audit: 8062
 ## bff: 8063
@@ -310,6 +311,33 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka_b:9094,PLAINTEXT_INTERNAL://localhost:29092
+    networks:
+      - link-nw
+      
+  ###########################################
+  ### HAPI FHIR SERVER
+  ###########################################
+  
+  hapi-fhir:
+    image: hapiproject/hapi
+    environment:
+      hapi.fhir.allowed_bundle_types: collection,searchset,transaction,batch,message
+      hapi.fhir.client_id_strategy: ANY
+      hapi.fhir.bulk_export_enabled: false
+      hapi.fhir.enable_index_missing_fields: true
+      hapi.fhir.tester.home.server_address: http://localhost:8059/fhir
+      JAVA_OPTS: "-Xms2G -Xmx4G"
+      hapi.fhir.auto_create_placeholder_reference_targets: true
+      hapi.fhir.cors.allowed_origin: '*'
+      hapi.fhir.cors.allow_Credentials: false
+      hapi.fhir.cql_enabled: false
+    ports:
+      - "8059:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8059/fhir/metadata"]
+      interval: 200s
+      timeout: 200s
+      retries: 5
     networks:
       - link-nw
      
