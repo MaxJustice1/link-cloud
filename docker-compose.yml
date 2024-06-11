@@ -331,6 +331,8 @@ services:
       hapi.fhir.cors.allowed_origin: '*'
       hapi.fhir.cors.allow_Credentials: false
       hapi.fhir.cql_enabled: false
+      hapi.fhir.allow_external_references: true
+      hapi.fhir.allow_multiple_delete: true
     ports:
       - "8059:8080"
     healthcheck:
