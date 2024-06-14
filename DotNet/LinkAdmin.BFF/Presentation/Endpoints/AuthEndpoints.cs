@@ -3,6 +3,7 @@ using LantanaGroup.Link.LinkAdmin.BFF.Application.Models.Configuration;
 using LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Logging;
 using LantanaGroup.Link.LinkAdmin.BFF.Settings;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 
@@ -63,7 +64,7 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Presentation.Endpoints
         }
 
         public IResult Login(HttpContext context)
-        {            
+        {
             var RedirectLink = "/api/info";
             var referer = context.Request.Headers.Referer.ToString();
             referer = (referer.ToString().IndexOf('/') > 0) ? referer[..referer.LastIndexOf('/')] : referer;
@@ -76,12 +77,14 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Presentation.Endpoints
 
             _logger.LogInformation("Based on referer {referer} a redirect URL was determined: {RedirectLink}", referer, RedirectLink);
 
-            return Results.Challenge(
+            IResult result = Results.Challenge(
                 properties: new AuthenticationProperties
                 {
-                    RedirectUri = RedirectLink, 
+                    RedirectUri = RedirectLink,
                 },
-                authenticationSchemes: [_authSchemaOptions.Value.DefaultChallengeScheme]); 
+                authenticationSchemes: [_authSchemaOptions.Value.DefaultChallengeScheme]);
+            
+            return result;
         }
 
         public IResult GetUser(HttpContext context)

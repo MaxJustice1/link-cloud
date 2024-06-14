@@ -1,4 +1,5 @@
 ﻿using LantanaGroup.Link.LinkAdmin.BFF.Application.Models.Configuration;
+using LantanaGroup.Link.Shared.Application.Models.Configs;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 
 namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
@@ -43,7 +44,7 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
                 cpb.WithExposedHeaders(corsServiceOptions.AllowedExposedHeaders is not null ? corsServiceOptions.AllowedExposedHeaders : corsServiceOptions.DefaultAllowedExposedHeaders);
                 cpb.SetPreflightMaxAge(TimeSpan.FromSeconds(corsServiceOptions.MaxAge));
 
-                options.AddPolicy(CorsConfig.DefaultCorsPolicyName, cpb.Build());
+                options.AddPolicy(CorsSettings.DefaultCorsPolicyName, cpb.Build());
 
                 //add health check endpoint to cors policy
                 options.AddPolicy("HealthCheckPolicy", policy =>
@@ -58,7 +59,7 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
         }
     }
 
-    public class CorsServiceOptions : CorsConfig
+    public class CorsServiceOptions : CorsSettings
     {
         public IWebHostEnvironment Environment { get; set; } = null!;
     }

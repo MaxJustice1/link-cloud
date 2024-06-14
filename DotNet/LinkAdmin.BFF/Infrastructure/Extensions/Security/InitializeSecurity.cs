@@ -1,16 +1,21 @@
 ﻿using LantanaGroup.Link.LinkAdmin.BFF.Application.Models.Configuration;
 using LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Authentication;
 using LantanaGroup.Link.LinkAdmin.BFF.Settings;
+using LantanaGroup.Link.Shared.Application.Models.Configs;
+using LantanaGroup.Link.Shared.Settings;
 using Link.Authorization.Infrastructure;
 using Link.Authorization.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
 {
     public static class InitializeSecurity
     {
-        public static IServiceCollection AddLinkGatewaySecurity(this IServiceCollection services, IConfiguration configuration, Action<SecurityServiceOptions>? options = null)
-        { 
+        public static IServiceCollection AddLinkGatewaySecurity(this IServiceCollection services, ILogger logger, IConfiguration configuration, Action<SecurityServiceOptions>? options = null)
+        {
+            logger.LogInformation("Adding Link Gateway Security");
+            
             var securityServiceOptions = new SecurityServiceOptions();
             options?.Invoke(securityServiceOptions);
 
@@ -19,6 +24,8 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
 
             if (securityServiceOptions.Environment.IsDevelopment() && configuration.GetValue<bool>("Authentication:EnableAnonymousAccess"))
             {
+                logger.LogWarning("Anonymous access enabled.");
+                
                 services.AddAuthentication(options =>
                 {
                     options.RequireAuthenticatedSignIn = false;
@@ -60,6 +67,7 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
                 options.Cookie.Name = LinkAdminConstants.AuthenticationSchemes.Cookie;
                 options.Cookie.SameSite = SameSiteMode.Strict;
                 options.ExpireTimeSpan = TimeSpan.FromMinutes(30);
+                options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
                 options.LoginPath = "/api/login";
                 options.LogoutPath = "/api/logout";
             });
@@ -112,7 +120,6 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
                     options.Audience = configuration.GetValue<string>("Authentication:Schemas:Jwt:Audience");
                     options.NameClaimType = configuration.GetValue<string>("Authentication:Schemas:Jwt:NameClaimType");
                     options.RoleClaimType = configuration.GetValue<string>("Authentication:Schemas:Jwt:RoleClaimType");
-
                 });
             }
 
@@ -137,7 +144,7 @@ namespace LantanaGroup.Link.LinkAdmin.BFF.Infrastructure.Extensions.Security
             });
 
             // Configure CORS
-            var corsConfig = configuration.GetSection(LinkAdminConstants.AppSettingsSectionNames.CORS).Get<CorsConfig>();
+            var corsConfig = configuration.GetSection(ConfigurationConstants.AppSettings.CORS).Get<CorsSettings>();
             if (corsConfig != null)
             {
                 services.AddCorsService(options =>

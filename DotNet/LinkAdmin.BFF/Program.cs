@@ -32,6 +32,7 @@ using LantanaGroup.Link.Shared.Application.Middleware;
 using LantanaGroup.Link.Shared.Application.Extensions.ExternalServices;
 using LantanaGroup.Link.Shared.Application.Extensions.Security;
 using System.Configuration;
+using LantanaGroup.Link.LinkAdmin.BFF.Application;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,7 +46,6 @@ app.Run();
 #region Register Services
 static void RegisterServices(WebApplicationBuilder builder)
 {
-
     //Initialize activity source
     var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
     ServiceActivitySource.Initialize(version);
@@ -125,13 +125,16 @@ static void RegisterServices(WebApplicationBuilder builder)
     bool allowAnonymousAccess = builder.Configuration.GetValue<bool>("Authentication:EnableAnonymousAccess");
     if (!allowAnonymousAccess)
     {
-        builder.Services.AddLinkGatewaySecurity(builder.Configuration, options =>
+        var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
+        builder.Services.AddLinkGatewaySecurity(logger, builder.Configuration, options =>
         {
             options.Environment = builder.Environment;
         });
     }
     else
     {  
+        builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>()
+            .LogWarning("Configured for anonymous access. This should be disabled.");
         //create anonymous access
         builder.Services.AddAuthorizationBuilder()        
             .AddPolicy("AuthenticatedUser", pb =>
@@ -307,8 +310,18 @@ static void SetupMiddleware(WebApplication app)
     }
 
     app.UseRouting();
+    
+    app.UseCookiePolicy(new CookiePolicyOptions
+    {
+        Secure = CookieSecurePolicy.SameAsRequest,
+        OnAppendCookie = (context =>
+        {
+            app.Logger.LogInformation("Cookie appended: {CookieName}", context.CookieName);
+        })
+    });
+    
     var corsConfig = app.Configuration.GetSection(ConfigurationConstants.AppSettings.CORS).Get<CorsSettings>();
-    app.UseCors(CorsConfig.DefaultCorsPolicyName);
+    app.UseCors(CorsSettings.DefaultCorsPolicyName);
 
     //check for anonymous access
     var allowAnonymousAccess = app.Configuration.GetValue<bool>("Authentication:EnableAnonymousAccess");
@@ -343,7 +356,7 @@ static void SetupMiddleware(WebApplication app)
     app.MapHealthChecks("/api/health", new HealthCheckOptions
     {
         ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
-    }).RequireCors("HealthCheckPolicy");    
+    }).RequireCors("HealthCheckPolicy");
 }
 
 #endregion
